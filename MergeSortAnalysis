@@ -1,0 +1,309 @@
+//Programmer: Ryan Admire
+//Project #2
+//File: used in Mergesort section, part A
+
+#include<string>
+#include<time.h>
+#include<iostream>
+#include<fstream>
+#include<stdio.h>
+
+using namespace std;
+
+/////////FUNCTIONS TO BE USED/////////////
+int * CreateArray(string file, int length);  //creates an array based on the passed file name
+void CreateFile(string name, int length);    //creates a file of random integers of the passed length
+void Append(string f1, string f2);           //Appends a smaller file to a larger one inside a new file
+void Write(int arr[], int len, string name); //Writes an array's contents to a file
+void Merge(int* arr, int p, int q, int r); //Mergesort will use this
+void MergeSort(int* arr, int p, int r);    //Sorts with the help of Merge
+void MergeFiles(string f1, string f2, string out);  //Merges two sorted files together
+
+int main() {
+	
+	int N[3] = { 1000, 10000, 100000 };    //sizes of the larger files
+	int M[3] = { 25, 50, 100 };			   //sizes of the smaller files
+	int* arr = NULL;					   //will hold the array to be passed to MergeSort
+	int tot = 0, tot2 = 0;                 //total of all the times
+	double av = 0, av2 = 0;                //average of all the times
+
+	//loop through all large file sizes
+	for (int i = 0; i < 3; i++) {
+
+		CreateFile("LargeFile.txt", N[i]); //Create the large file
+		//Large File must be sorted before we work on it. So let's sort it
+		arr = CreateArray("LargeFile.txt", N[i]);       //First off we will need it in an array
+		MergeSort(arr, 0, N[i] - 1);                    //Sort the array. Send Mergesort beginning and ending element
+		Write(arr, N[i], "LargeFile.txt");              //Write the array to the file
+		
+		//garbage collection
+		delete[] arr;
+		arr = NULL;
+		
+		//loop through all small file sizes
+		for (int j = 0; j < 3; j++) {
+			
+			//each combination must be run 10 times
+			for (int k = 0; k < 10; k++) {
+
+				CreateFile("SmallFile.txt", M[j]); //Creates the small file
+								
+				//First approach is to append to the large file and then sort
+				//Sort the appended file and time it
+				int duration = 0; //duration of a code fragment
+
+				clock_t t1, t2; //two clcoks will be used to time the sort
+				t1 = clock();   //start the clock
+				Append("LargeFile.txt", "SmallFile.txt");  //Append the files together in a new file
+				arr = CreateArray("Appended.txt", (N[i] + M[j]));
+				MergeSort(arr, 0, N[i] + M[j] - 1);  //sort from the first to the last element
+				t2 = clock();
+				duration = t2 - t1;   //take the difference of beginning and ending
+				tot += duration;      //add it to the total
+
+				Write(arr, N[i] + M[j], "Sorted.txt");  //Write the file back to check our work
+
+		        //garbage collection
+				delete[] arr;
+				arr = NULL;
+
+				//Second approach is to sort the smaller file and then merge the two files
+				//Time every section
+				
+				t1 = clock();
+				arr = CreateArray("SmallFile.txt", M[j]); 
+				MergeSort(arr, 0, M[j] - 1);
+				Write(arr, M[j], "SmallFile.txt");
+				MergeFiles("LargeFile.txt", "SmallFile.txt", "Merged.txt");
+				t2 = clock();
+				duration = t2 - t1;
+				tot2 += duration;
+
+			}
+
+			av = (double(tot) / double(10)) / double(CLOCKS_PER_SEC); //divide by the number of repitions and get the untis in seconds
+			av2 = (double(tot2) / double(10)) / double(CLOCKS_PER_SEC); //divide by the number of repitions and get the untis in seconds
+
+			cout << "File Sizes: " << N[i] << " & " << M[j] << endl
+				 << "Append Time: " << av << " seconds" << endl
+				 << "Sort and Merge Time: " << av2 << " seconds" << endl << endl;
+		}
+	}
+
+	//garbage collection
+	delete[] arr;
+	arr = NULL;
+
+	return 0;
+}
+
+
+//creates a file of random integers of the passed length returns an array of those values
+void CreateFile(string name, int length) {
+	
+	ofstream out; //filestream to output integers to a file
+	srand(time(NULL)); //seeds our number generator to time
+
+
+	remove(name.c_str());  //remove the file if it exists
+	out.open(name);
+
+	//check if our file is open
+	if (out.is_open()) {
+
+		//loop until length is reached
+		for (int i = 0; i < length; i++) {
+			out << rand() << " ";
+		}
+
+		out.close(); //close the file
+
+	}
+}
+
+//Creates an array absed on the passed file name
+int * CreateArray(string file, int length) {
+
+	int bs;                      //to throw stuff away
+	int *arr = new int[length];  //array to hold the integers
+
+	ifstream in(file); //open the passed file
+
+
+	//if the file is successfully opened
+	if (in.is_open()) {
+
+		//fill the array with random integers
+		for (int i = 0; i < length; i++) {
+			in >> arr[i];      //read the number into the file
+		}
+
+		in.close();  //close the file
+	}
+
+	return arr;
+}
+
+//This function will do the heavy lifting of breaking and sorting, then merging in the mergesort function
+void Merge(int* arr, int p, int q, int r) {
+	
+	int i, j, k;
+	int n = q - p + 1;
+	int m = r - q;
+
+	int* L = new int[n];
+	int* R = new int[m];
+
+	for (i = 0; i < n; i++) {
+		L[i] = arr[p + i];
+	}
+	for (j = 0; j < m; j++) {
+		R[j] = arr[q + 1 + j];
+	}
+
+	i = j = 0;
+	k = p;
+
+	while (i < n && j < m) {
+		if (L[i] <= R[j]) {
+			arr[k] = L[i];
+			i++;
+		}
+		else {
+			arr[k] = R[j];
+			j++;
+		}
+		k++;
+	}
+
+	while (i < n) {
+		arr[k] = L[i];
+		i++;
+		k++;
+	}
+	while (j < m) {
+		arr[k] = R[j];
+		j++;
+		k++;
+	}
+
+	delete[] L;
+	delete[] R;
+	L = R = NULL;
+
+}
+
+//This function will perform the Mergesort using Merge to do the heavy lifting.
+void MergeSort(int* arr, int p, int r) {
+	
+	//as long as p remains smaller than r
+	if (p < r) {
+		int q = floor((r + p) / 2); //get the midpoint
+		MergeSort(arr, p, q); //calls itself for the left
+		MergeSort(arr, q + 1, r); //the right half
+		Merge(arr, p, q, r);  //merges everything back together
+	}
+}
+
+//Appends the second file to the first inside of a new third file
+void Append(string f1, string f2) {
+
+	ifstream inf1(f1); //long file to be read from
+	ifstream inf2(f2); //short file to be read from
+	ofstream out;      //longer file to be appended to
+	int hold;          //integer to hold the data from the files
+
+	remove("Appended.txt");          //remove the file if it exists
+	out.open("Appended.txt");      //open the new file to be written to
+
+	///if both files are open
+	if (inf1.is_open() && inf2.is_open()) {
+		
+		//while the file still has data to be read
+		while (!inf1.eof()) {
+			inf1 >> hold;           //read an integer
+			out << hold << " ";    //write it to file
+		}
+
+		//while the second file has data to be read
+		while (!inf2.eof()) {
+			inf2 >> hold;            //read
+			out << hold << " ";     //write
+		}
+
+		//close both files
+		inf1.close();  
+		inf2.close();
+	}
+}
+
+//Writes the passed array to the passed file name
+void Write(int arr[], int len, string name) {
+
+
+	ofstream out;
+
+	remove(name.c_str()); //remove the file if it exists
+	out.open(name); //open the file
+
+	//write the array to the file one element at a time
+	for (int i = 0; i < len; i++){
+		out << arr[i] << " ";
+	}
+
+	out.close(); //close the file
+}
+
+//Merges two completely sorted files together in a new file
+void MergeFiles(string f1, string f2, string out) {
+
+	int h1, h2;  //used to hold integers
+
+	//Open the files
+	ifstream in(f1);
+	ifstream in2(f2);
+	ofstream outf(out);
+
+	if (in) {
+		in >> h1; //grab an integer
+	}
+	if (in2) {
+		in2 >> h2; //grab a second integer
+	}
+
+	//while either file is still open
+	while (in || in2) {
+		
+		//if both sre still open
+		if (in && in2) {
+			
+			//if the second int is less than the first
+			if (h2 <= h1) {
+				outf << h2 << " ";  //output int
+				in2 >> h2;          //read a new one in
+			}
+			else {
+				outf << h1 << " ";  //output
+				in >> h1;           //read in a new int
+			}
+		}
+		//if one of the files is done
+		else {
+			if (!in) {
+				outf << h2 << " "; //output the second files integers
+			}
+			else if (!in2) {
+				outf << h1 << " "; //output the first files integers
+			}
+			
+
+			//get an int from whichever is still open
+			if (in) {
+				in >> h1;
+			}
+			else if (in2) {
+				in2 >> h2;
+			}
+		}
+	}
+}
